@@ -12,14 +12,12 @@ const double me = 0.511 * 10E6;
 
 const double GeV = 1E9;
 const double GeVtoMeV = 1000;
-const double barn = 1E-24;
 
 const double radian = M_PI / 180;
 
 
 const double eps1 = 1e-3;
 const double eps2 = 1e-4;
-double z0 = 0, z = 1 - eps1;
 //double dz = 1e-2;
 
 void CalcQuotients(double pnu, double theta, double* pa, double* pb, double* pc);
@@ -257,7 +255,7 @@ double Discriminant(double a, double b, double c)
 
 double ScatteringCrossSection(double pnu, double theta, double pe)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E5;
 	const double Gf = 1.166 * 1E-11;
 
 	double theta_C = 13 * radian; // the Cabbibo angle
@@ -271,12 +269,12 @@ double ScatteringCrossSection(double pnu, double theta, double pe)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
 			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
 
-	return sigma / barn;
+	return sigma * hc2;
 }
 
 double ScatteringCrossSection(double pnu, double theta, double pe, double z)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5;
 	const double Gf = 1.166 * 1E-11;
 
 	double theta_C = 13 * radian; // the Cabbibo angle
@@ -290,12 +288,12 @@ double ScatteringCrossSection(double pnu, double theta, double pe, double z)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
 			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
 
-	return sigma / barn;
+	return sigma * hc2;
 }
 
 double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5;
 	const double Gf = 1.166 * 1E-11;
 
 	double q2 = 2 * pnu * pe0 - 2 * pnu * pe0 * cos(theta);
@@ -308,7 +306,7 @@ double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
 			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
 
-	return sigma / barn;
+	return sigma * hc2;
 }
 
 double ProtonImpulse(double pnu, double pe, double theta_e)
