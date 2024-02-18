@@ -12,13 +12,9 @@ const double me = 0.511 * 10E6;
 
 const double GeV = 1E9;
 const double GeVtoMeV = 1000;
-
 const double radian = M_PI / 180;
-
-
 const double eps1 = 1e-3;
 const double eps2 = 1e-4;
-//double dz = 1e-2;
 
 void CalcQuotients(double pnu, double theta, double* pa, double* pb, double* pc);
 void CalcQuotientsMasslessCase(double pnu, double theta, double* pa0, double* pb0, double* pc0);
@@ -67,8 +63,6 @@ int main()
 	cin >> pnu;
 
 	pnu = pnu * GeV * GeVtoMeV;
-
-
 
 
 	cout << "Enter the angle (degrees): " << endl;
@@ -163,7 +157,7 @@ int main()
 
 		sigma2 = ScatteringCrossSection(pnu, Angle[i], pe1);
 		sigma1 = ScatteringCrossSectionMasslessCase(pnu, Angle[i], pe10);
-		sigmalll = SigmaLLL(pnu, Angle[i], pe1/*, z0*/);
+		sigmalll = SigmaLLL(pnu, Angle[i], pe1);
 
 		d_sigma = (sigma2 - sigma1) / sigma1;
 		//diff = (sigmalll - sigma2);
@@ -334,7 +328,7 @@ double func2(double pnu, double theta, double pe, double z)
 	return f2;
 }
 
-double Simpson(double pnu, double theta, double pe, /*double z,*/ double (*str)(double pnu, double theta, double pe), double end, int splits,
+double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe), double end, int splits,
 	double (*func)(double pnu, double theta, double pe, double z))
 {
 	double h = (end - str(pnu, theta, pe)) / splits;
@@ -352,7 +346,7 @@ double Simpson(double pnu, double theta, double pe, /*double z,*/ double (*str)(
 	return sum;
 }
 
-double SigmaLLL(double pnu, double theta, double pe/*, double z*/)
+double SigmaLLL(double pnu, double theta, double pe)
 {
 	const double alpha = 0.0073; //fine structure constant
 	double s = me * me + 2 * pnu * Mn + Mn * Mn; //total energy of the system in the SCM
@@ -360,8 +354,8 @@ double SigmaLLL(double pnu, double theta, double pe/*, double z*/)
 	double E_astr = (s + me * me - Mn * Mn) / (2 * sqrt(s)); //electron energy in the SCM
 
 	double sigmalll = ScatteringCrossSection(pnu, theta, pe) + alpha / (2 * M_PI) * log((4 * E_astr) / (me * me)) *
-		(Simpson(pnu, theta, pe, /*z,*/ LowIntLim, 1 - eps2, 100,
-			func1) - Simpson(pnu, theta, pe, /*z,*/ ZeroIntLim, 1 - eps2, 100,
+		(Simpson(pnu, theta, pe, LowIntLim, 1 - eps2, 100,
+			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 1 - eps2, 100,
 				func2));
 	return sigmalll;
 }
