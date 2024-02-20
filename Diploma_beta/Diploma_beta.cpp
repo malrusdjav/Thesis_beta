@@ -6,11 +6,10 @@
 using namespace std;
 
 // MeV
-const double Mn = 939.57 * 10E6;
-const double Mp = 938.28 * 10E6;
-const double me = 0.511 * 10E6;
+const double Mn = 939.57; 
+const double Mp = 938.28;
+const double me = 0.511;
 
-const double GeV = 1E9;
 const double GeVtoMeV = 1000;
 const double radian = M_PI / 180;
 const double eps1 = 1e-3;
@@ -62,7 +61,7 @@ int main()
 	cout << "Enter the neutrino pulse (GeV): " << endl;
 	cin >> pnu;
 
-	pnu = pnu * GeV * GeVtoMeV;
+	pnu = pnu * GeVtoMeV;
 
 
 	cout << "Enter the angle (degrees): " << endl;
@@ -165,7 +164,7 @@ int main()
 
 		data << Angle[i] << " " << sigma2 << endl;
 		difference << Angle[i] << " " << diff << endl;
-		rad_corr << Angle[i] << " " << diff << endl;
+		rad_corr << Angle[i] << " " << sigmalll << endl;
 
 		protonImpulse = ProtonImpulse(pnu, pe1, Angle[i]);
 		protonAngle = ProtonAngle(pnu, pe1, Angle[i]);
@@ -247,7 +246,7 @@ double Discriminant(double a, double b, double c)
 }
 
 
-double ScatteringCrossSection(double pnu, double theta, double pe)
+double ScatteringCrossSection(double pnu, double theta, double pe) //  ds/d(cos[theta])
 {
 	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E5;
 	const double Gf = 1.166 * 1E-11;
@@ -258,7 +257,12 @@ double ScatteringCrossSection(double pnu, double theta, double pe)
 	double q2 = -me * me + 2 * pnu * Ee - 2 * pnu * pe * cos(theta);
 	double y = q2 / (2 * Mn * pnu);
 
-	double sigma = Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+	double sigma = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+		cos(theta)), 2) * pnu * pnu *
+		Mn * pnu * (Mn + pnu) +
+		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
+		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) * Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
 		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
 			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
@@ -287,8 +291,8 @@ double ScatteringCrossSection(double pnu, double theta, double pe, double z)
 
 double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5;
-	const double Gf = 1.166 * 1E-11;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5; //MeV2*barn not 5
+	const double Gf = 1.166 * 1E-11; //MeV-2
 
 	double q2 = 2 * pnu * pe0 - 2 * pnu * pe0 * cos(theta);
 	double y = q2 / (2 * Mn * pnu);
@@ -318,15 +322,28 @@ double ProtonAngle(double pnu, double pe, double theta_e)
 
 double func1(double pnu, double theta, double pe, double z)
 {
-	double f1 = 2 * pnu * pe * sin(theta) * (ScatteringCrossSection(pnu, theta, pe, z) / z) * (1 + z * z) / (1 - z);
+	double f1 = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+		cos(theta)), 2) * pnu * pnu *
+		Mn * pnu * (Mn + pnu) +
+		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
+		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) * 
+		(ScatteringCrossSection(pnu, theta, pe, z) / z) * (1 + z * z) / (1 - z);
 	return f1;
 }
 
 double func2(double pnu, double theta, double pe, double z)
 {
-	double f2 = 2 * pnu * pe * sin(theta) * ScatteringCrossSection(pnu, theta, pe) * (1 + z * z) / (1 - z);
+	double f2 = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+		cos(theta)), 2) * pnu * pnu *
+		Mn * pnu * (Mn + pnu) +
+		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
+		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) *
+		ScatteringCrossSection(pnu, theta, pe) * (1 + z * z) / (1 - z);
 	return f2;
 }
+
 
 double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe), double end, int splits,
 	double (*func)(double pnu, double theta, double pe, double z))
@@ -338,11 +355,11 @@ double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, do
 
 	for (int i = 1; i <= splits - 1; i++)
 	{
-		k = 2 + 2 * (i % 2);
-		sum += k * func(pnu, theta, pe, str(pnu, theta, pe) + i * h);
+			k = 2 + 2 * (i % 2);
+			sum += k * func(pnu, theta, pe, str(pnu, theta, pe) + i * h);
 	}
 	sum *= h / 3;
-
+	
 	return sum;
 }
 
@@ -353,14 +370,16 @@ double SigmaLLL(double pnu, double theta, double pe)
 
 	double E_astr = (s + me * me - Mn * Mn) / (2 * sqrt(s)); //electron energy in the SCM
 
+
+	// if a>b not not calc
 	double sigmalll = ScatteringCrossSection(pnu, theta, pe) + alpha / (2 * M_PI) * log((4 * E_astr) / (me * me)) *
-		(Simpson(pnu, theta, pe, LowIntLim, 1 - eps2, 100,
-			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 1 - eps2, 100,
+		(Simpson(pnu, theta, pe, LowIntLim, 1-eps2, 100,
+			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 1-eps2, 100,
 				func2));
 	return sigmalll;
 }
 
-double LowIntLim(double pnu, double theta, double pe)
+double LowIntLim(double pnu, double theta, double pe) // pe1 not pe
 {
 	double a, b, c;
 	CalcQuotients(pnu, M_PI, &a, &b, &c); //max
