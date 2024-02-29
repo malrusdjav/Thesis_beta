@@ -33,12 +33,20 @@ double ProtonAngle(double pnu, double pe, double theta_e);
 
 double func1(double pnu, double theta, double pe, double z);
 double func2(double pnu, double theta, double pe, double z);
-double Simpson(double pnu, double theta, double pe, /*double z,*/ double (*str)(double pnu, double theta, double pe),
+double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe),
 	double end, int splits, double (*func)(double pnu, double theta, double pe, double z));
-double SigmaLLL(double pnu, double theta, double pe/*, double z*/);
+double SigmaLLL(double pnu, double theta, double pe);
 double LowIntLim(double pnu, double theta, double pe);
 double ZeroIntLim(double pnu, double theta, double pe);
 double MaxImpulse(double pnu, double a, double b, double c);
+
+
+
+//for testing
+double TestStart(double a);
+double TestEnd(double b);
+double TestFunc(double x);
+double TestSimpson(double (*str)(double a), double (*end)(double b), double n, double (*func)(double), double a, double b);
 
 
 
@@ -52,6 +60,7 @@ int main()
 	// for the massless case
 	double A0, B0, C0 = 0;
 	double pe10, pe20 = 0;
+	double pe = 0; // this variable takes a positive root value in the for loop below (either pe1 or pe2)
 
 	double pnu;
 
@@ -152,11 +161,22 @@ int main()
 		Impulse(pnu, A, B, C, &pe1, &pe2);
 		Impulse(pnu, A0, B0, C0, &pe10, &pe20);
 
-		pulse << Angle[i] << "    " << pe1 /*<< " " << pe2 << "	|	" << pe10 << " " << pe20*/ << endl;
+		pulse << Angle[i] << "    " << pe1 << endl;
+		//pulse << Angle[i] << "    " << pe1 << " | " << pe2 << endl;
 
-		sigma2 = ScatteringCrossSection(pnu, Angle[i], pe1);
+		if (pe1 > 0 && pe2 < 0)
+			pe = pe1;
+		else
+		{
+			if (pe1 < 0 && pe2>0)
+				pe = pe2;
+			else
+				cout << "Error! Both roots are either positive or negative!" << endl;
+		}
+		
+		sigma2 = ScatteringCrossSection(pnu, Angle[i], pe);
 		sigma1 = ScatteringCrossSectionMasslessCase(pnu, Angle[i], pe10);
-		sigmalll = SigmaLLL(pnu, Angle[i], pe1);
+		sigmalll = SigmaLLL(pnu, Angle[i], pe);
 
 		d_sigma = (sigma2 - sigma1) / sigma1;
 		//diff = (sigmalll - sigma2);
@@ -166,10 +186,10 @@ int main()
 		difference << Angle[i] << " " << diff << endl;
 		rad_corr << Angle[i] << " " << sigmalll << endl;
 
-		protonImpulse = ProtonImpulse(pnu, pe1, Angle[i]);
-		protonAngle = ProtonAngle(pnu, pe1, Angle[i]);
+		protonImpulse = ProtonImpulse(pnu, pe, Angle[i]);
+		protonAngle = ProtonAngle(pnu, pe, Angle[i]);
 
-		totalEnergy = TotalPulse(protonImpulse, pe1);
+		totalEnergy = TotalPulse(protonImpulse, pe);
 		energy << Angle[i] << "   " << totalEnergy << endl;
 		// Angle[i] not protonAngle in order to draw both graphs (for an electron and a proton)
 		//of the same x (in this case an angle of the eletron)
@@ -194,7 +214,7 @@ int main()
 	difference.close();
 
 	delete[]Angle;
-
+	//cout << TestSimpson(TestStart, TestEnd, 100, TestFunc, -0.2, 1.82) << endl;
 
 	return 0;
 }
@@ -248,7 +268,7 @@ double Discriminant(double a, double b, double c)
 
 double ScatteringCrossSection(double pnu, double theta, double pe) //  ds/d(cos[theta])
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E5;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E3;
 	const double Gf = 1.166 * 1E-11;
 
 	double theta_C = 13 * radian; // the Cabbibo angle
@@ -257,41 +277,51 @@ double ScatteringCrossSection(double pnu, double theta, double pe) //  ds/d(cos[
 	double q2 = -me * me + 2 * pnu * Ee - 2 * pnu * pe * cos(theta);
 	double y = q2 / (2 * Mn * pnu);
 
-	double sigma = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+	double jacobian = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
 		cos(theta)), 2) * pnu * pnu *
 		Mn * pnu * (Mn + pnu) +
 		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
 		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) * Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
+
+	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
 		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
-			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
+			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
 
 	return sigma * hc2;
 }
 
 double ScatteringCrossSection(double pnu, double theta, double pe, double z)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E3;
 	const double Gf = 1.166 * 1E-11;
 
 	double theta_C = 13 * radian; // the Cabbibo angle
 
-	double Ee = sqrt(pe * pe + me * me);
-	double q2 = (-me * me + 2 * pnu * Ee - 2 * pnu * pe * cos(theta)) / z; //that's capped q2 
-	double y = q2 / (2 * Mn * pnu);
+	double pe_cap = pe / z;
+	double Ee_cap = sqrt(pe_cap * pe_cap + me * me); //that's capped energy
+	double q2_cap = (-me * me + 2 * pnu * Ee_cap - 2 * pnu * pe_cap * cos(theta));
+	double y = q2_cap / (2 * Mn * pnu);
 
-	double sigma = Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+		cos(theta)), 2) * pnu * pnu *
+		Mn * pnu * (Mn + pnu) +
+		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
+		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
+
+	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
 		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
-			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
+			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
 
 	return sigma * hc2;
 }
 
 double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E5; //MeV2*barn not 5
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E3; //MeV2*barn not 5
 	const double Gf = 1.166 * 1E-11; //MeV-2
 
 	double q2 = 2 * pnu * pe0 - 2 * pnu * pe0 * cos(theta);
@@ -299,10 +329,17 @@ double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 
 	double theta_C = M_PI / 180 * 13; // the Cabbibo angle
 
-	double sigma = Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+		cos(theta)), 2) * pnu * pnu *
+		Mn * pnu * (Mn + pnu) +
+		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
+		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
+
+	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
 		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
-			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa));
+			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
 
 	return sigma * hc2;
 }
@@ -322,25 +359,26 @@ double ProtonAngle(double pnu, double pe, double theta_e)
 
 double func1(double pnu, double theta, double pe, double z)
 {
-	double f1 = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
 		cos(theta)), 2) * pnu * pnu *
 		Mn * pnu * (Mn + pnu) +
 		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
 		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) * 
-		(ScatteringCrossSection(pnu, theta, pe, z) / z) * (1 + z * z) / (1 - z);
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
+	double f1 =  (ScatteringCrossSection(pnu, theta, pe, z) / z) * (1 + z * z) / (1 - z);
 	return f1;
 }
 
 double func2(double pnu, double theta, double pe, double z)
 {
-	double f2 = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
+	//jacobian sign +/-??
+	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
 		cos(theta)), 2) * pnu * pnu *
 		Mn * pnu * (Mn + pnu) +
 		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
 		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2))) *
-		ScatteringCrossSection(pnu, theta, pe) * (1 + z * z) / (1 - z);
+			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
+	double f2 = ScatteringCrossSection(pnu, theta, pe) * (1 + z * z) / (1 - z);
 	return f2;
 }
 
@@ -348,20 +386,26 @@ double func2(double pnu, double theta, double pe, double z)
 double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe), double end, int splits,
 	double (*func)(double pnu, double theta, double pe, double z))
 {
-	double h = (end - str(pnu, theta, pe)) / splits;
-
-	double sum = func(pnu, theta, pe, str(pnu, theta, pe)) + func(pnu, theta, pe, end);
-	int k;
-
-	for (int i = 1; i <= splits - 1; i++)
+	double sum = 0;
+	if (str(pnu, theta, pe) < end)
 	{
+		double h = (end - str(pnu, theta, pe)) / splits;
+
+		sum = func(pnu, theta, pe, str(pnu, theta, pe)) + func(pnu, theta, pe, end);
+		int k;
+
+		for (int i = 1; i <= splits - 1; i++)
+		{
 			k = 2 + 2 * (i % 2);
 			sum += k * func(pnu, theta, pe, str(pnu, theta, pe) + i * h);
+		}
+		sum *= h / 3;
 	}
-	sum *= h / 3;
-	
 	return sum;
 }
+
+
+
 
 double SigmaLLL(double pnu, double theta, double pe)
 {
@@ -371,10 +415,9 @@ double SigmaLLL(double pnu, double theta, double pe)
 	double E_astr = (s + me * me - Mn * Mn) / (2 * sqrt(s)); //electron energy in the SCM
 
 
-	// if a>b not not calc
 	double sigmalll = ScatteringCrossSection(pnu, theta, pe) + alpha / (2 * M_PI) * log((4 * E_astr) / (me * me)) *
-		(Simpson(pnu, theta, pe, LowIntLim, 1-eps2, 100,
-			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 1-eps2, 100,
+		(Simpson(pnu, theta, pe, LowIntLim, 0.99/*1-eps2*/, 100,
+			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 0.99/*1-eps2*/, 100,
 				func2));
 	return sigmalll;
 }
@@ -392,7 +435,8 @@ double LowIntLim(double pnu, double theta, double pe) // pe1 not pe
 
 double ZeroIntLim(double pnu, double theta, double pe)
 {
-	return eps2;
+	//return eps2;
+	return 0;
 }
 
 double MaxImpulse(double pnu, double a, double b, double c)
@@ -400,3 +444,37 @@ double MaxImpulse(double pnu, double a, double b, double c)
 	double pe_max = (-b + sqrt(Discriminant(a, b, c))) / (2 * a);
 	return pe_max;
 }
+
+double TestStart(double a)
+{
+	return a;
+}
+
+double TestEnd(double b)
+{
+	return b;
+}
+
+double TestFunc(double x)
+{
+	//return cos(x);
+	return sin(x);
+}
+
+double TestSimpson(double(*str)(double a), double(*end)(double b), double n, double(*func)(double), double a, double b)
+{
+	double h = ((*end)(b) - (*str)(a)) / n;
+
+	double sum = func(a) + func(b);
+	int k;
+
+	for (int i = 1; i <= n - 1; i++)
+	{
+		k = 2 + 2 * (i % 2);
+		sum += k * func(a + i * h);
+	}
+	sum *= h / 3;
+
+	return sum;
+}
+
