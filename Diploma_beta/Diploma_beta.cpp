@@ -70,7 +70,7 @@ int main()
 	cout << "Enter the neutrino pulse (GeV): " << endl;
 	cin >> pnu;
 
-	pnu = pnu * GeVtoMeV;
+	pnu *= GeVtoMeV;
 
 
 	cout << "Enter the angle (degrees): " << endl;
@@ -107,7 +107,17 @@ int main()
 	double protonImpulse;
 	double protonAngle;
 
-	string path1 = "DATA.txt";
+	string paths[6] = { "DATA.txt", "PULSE.txt", "PROTON.txt", "ENERGY.txt", "DIFFERENCE.txt", "RAD_CORR.txt"};
+	ofstream files[6];
+
+	for (int i = 0; i < 6; i++)
+		files[i].open(paths[i]);
+
+
+
+
+
+	/*string path1 = "DATA.txt";
 	ofstream data;
 	data.open(path1);
 
@@ -129,7 +139,7 @@ int main()
 
 	string path6 = "RAD_CORR.txt";
 	ofstream rad_corr;
-	rad_corr.open(path6);
+	rad_corr.open(path6);*/
 
 	double theta_min = 0;
 
@@ -161,18 +171,15 @@ int main()
 		Impulse(pnu, A, B, C, &pe1, &pe2);
 		Impulse(pnu, A0, B0, C0, &pe10, &pe20);
 
-		pulse << Angle[i] << "    " << pe1 << endl;
+		/*pulse*/files[1] << Angle[i] << "    " << pe1 << endl;
 		//pulse << Angle[i] << "    " << pe1 << " | " << pe2 << endl;
 
 		if (pe1 > 0 && pe2 < 0)
 			pe = pe1;
+		else if (pe1 < 0 && pe2>0)
+			pe = pe2;
 		else
-		{
-			if (pe1 < 0 && pe2>0)
-				pe = pe2;
-			else
-				cout << "Error! Both roots are either positive or negative!" << endl;
-		}
+			cout << "Error! Both roots are either positive or negative!" << endl;
 		
 		sigma2 = ScatteringCrossSection(pnu, Angle[i], pe);
 		sigma1 = ScatteringCrossSectionMasslessCase(pnu, Angle[i], pe10);
@@ -182,18 +189,18 @@ int main()
 		//diff = (sigmalll - sigma2);
 		diff = sigmalll;
 
-		data << Angle[i] << " " << sigma2 << endl;
-		difference << Angle[i] << " " << diff << endl;
-		rad_corr << Angle[i] << " " << sigmalll << endl;
+		/*data*/ files[0] << Angle[i] << " " << sigma2 << endl;
+		/*difference*/ files[4] << Angle[i] << " " << diff << endl;
+		/*rad_corr */files[5] << Angle[i] << " " << sigmalll << endl;
 
 		protonImpulse = ProtonImpulse(pnu, pe, Angle[i]);
 		protonAngle = ProtonAngle(pnu, pe, Angle[i]);
 
 		totalEnergy = TotalPulse(protonImpulse, pe);
-		energy << Angle[i] << "   " << totalEnergy << endl;
+		/*energy*/files[3] << Angle[i] << "   " << totalEnergy << endl;
 		// Angle[i] not protonAngle in order to draw both graphs (for an electron and a proton)
 		//of the same x (in this case an angle of the eletron)
-		proton << protonAngle << "    " << protonImpulse << endl;
+		/*proton*/files[2] << protonAngle << "    " << protonImpulse << endl;
 
 
 		/*if (pnu <= pe1)
@@ -204,14 +211,20 @@ int main()
 		//data << Angle[i] << " " << sigma2 << endl;
 	}
 
-	pulse << endl << endl;
+	/*pulse*/ files[1]<< endl << endl;
 	/*pulse << "Mininal angle is equal to: " << theta_min << endl;*/
 
-	data.close();
+
+	for (int i = 0; i < 6; i++)
+		files[i].close();
+
+
+
+	/*data.close();
 	pulse.close();
 	proton.close();
 	energy.close();
-	difference.close();
+	difference.close();*/
 
 	delete[]Angle;
 	//cout << TestSimpson(TestStart, TestEnd, 100, TestFunc, -0.2, 1.82) << endl;
