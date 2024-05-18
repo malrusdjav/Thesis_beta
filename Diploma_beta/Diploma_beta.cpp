@@ -9,37 +9,40 @@ using namespace std;
 const double Mn = 939.57; 
 const double Mp = 938.28;
 const double me = 0.511;
+const double mmu = 105;
 
 const double GeVtoMeV = 1000;
 const double radian = M_PI / 180;
-const double eps1 = 1e-3;
-const double eps2 = 1e-4;
+const double eps1 = 1e-4;
+const double eps2 = 1e-2;
+const string sort = "norm"; //neutrino or antineutrino
 
-void CalcQuotients(double pnu, double theta, double* pa, double* pb, double* pc);
-void CalcQuotientsMasslessCase(double pnu, double theta, double* pa0, double* pb0, double* pc0);
 
-double Discriminant(double a, double b, double c);
-void PrintQuotients(double a, double b, double c);
-void Impulse(double pnu, double a, double b, double c, double* pe1, double* pe2);
-void PrintImpulse(double pnu1, double pnu2);
-double TotalPulse(double pp, double pe);
+void Pulse(double pnu, double q2, double* pe);
+//double ScatteringCrossSection(double pnu, double q2);
+double ScatteringCrossSection(double pnu, double q2, string sort); // for testing
 
-double ScatteringCrossSection(double pnu, double theta, double pe);
-double ScatteringCrossSection(double pnu, double theta, double pe, double z);
-double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0);
+double ScatteringCrossSectionMasslessCase(double pnu, double q2, string sort);
 
-double ProtonImpulse(double pnu, double pe, double theta_e);
-double ProtonAngle(double pnu, double pe, double theta_e);
 
-double func1(double pnu, double theta, double pe, double z);
-double func2(double pnu, double theta, double pe, double z);
-double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe),
-	double end, int splits, double (*func)(double pnu, double theta, double pe, double z));
-double SigmaLLL(double pnu, double theta, double pe);
-double LowIntLim(double pnu, double theta, double pe);
-double ZeroIntLim(double pnu, double theta, double pe);
-double MaxImpulse(double pnu, double a, double b, double c);
+double func1(double pnu, double q2, double z);
+double func2(double pnu, double q2, double z);
+//double Romberg(double pnu, double q2, double (*str)(double pnu, double q2),
+//	double end, double (*func)(double pnu, double q2, double z));
 
+//double Romberg_Q2(double pnu, double q2_max, string sort, string gen, double str, double end, double (*func)(double pnu, double q2, string sort, string gen));
+double Simpson(double pnu, double q2, double (*str)(double pnu, double q2),
+	double end, double splits, double (*func)(double pnu, double q2, double z));
+
+//double Trapezium(double pnu, double q2[], double q2_max_curr, string sort, string gen, int corr_ord, int n);
+double Trapezium(double pnu, double q2_max, string sort, string gen, int corr_ord, int n);
+double Delta_diff(double pnu, string sort, int corr_ord, double q2_max);
+double Delta_small(double pnu, string sort, string gen, double Q2);
+
+double SigmaLLL(double pnu, double q2, string sort, string gen);
+double LowIntLim(double pnu, double q2); /*const double q2_max*/
+double ZeroIntLim(double pnu, double q2);
+double SubIntLim(double pnu, double q2);
 
 
 //for testing
@@ -48,308 +51,215 @@ double TestEnd(double b);
 double TestFunc(double x);
 double TestSimpson(double (*str)(double a), double (*end)(double b), double n, double (*func)(double), double a, double b);
 
+//double R(double pnu, double q2, int n, int m, double(*func)(double pu, double q2, double z), double a, double b);
+//double R_Q2(double pnu, string sort, string gen, double q2_max, int n, int m,
+//	double(*func)(double pnu, double q2, string sort, string gen), int corr_ord, double a, double b);
+double T(double pnu, string sort, string gen,
+	double(*func)(double pnu, double q2, string sort, string gen), double q2_max, int corr_ord, int n);
+
+double x2(double x);
+double x5(double x);
+double Trapeze(double a, double b, int n);
+double CheckAccur();
 
 
 
 int main()
 {
-	// for the usual case
-	double A, B, C = 0;
-	double pe1, pe2 = 0;
-
-	// for the massless case
-	double A0, B0, C0 = 0;
-	double pe10, pe20 = 0;
-	double pe = 0; // this variable takes a positive root value in the for loop below (either pe1 or pe2)
-
 	double pnu;
+	
 
-	double theta_deg;
-	double theta;
+	//cout << "Enter the type of particle" << endl;
+	/*cin >> sort;*/
 
 	cout << "Enter the neutrino pulse (GeV): " << endl;
 	cin >> pnu;
 
 	pnu *= GeVtoMeV;
 
-
-	cout << "Enter the angle (degrees): " << endl;
-	cin >> theta_deg;
-	theta = theta_deg * radian;
-
-	CalcQuotients(pnu, theta, &A, &B, &C);
-	CalcQuotientsMasslessCase(pnu, theta, &A0, &B0, &C0);
-	cout << "Discriminant is equal to (for the usual case) " << Discriminant(A, B, C) << endl << endl;
-	cout << "Discriminant is equal to (for the massless case) " << Discriminant(A0, B0, C0) << endl << endl;
+	//double pe;
+	int steps = 20;
+	double* q2 = new double[steps];
 
 
-	//PrintQuotients(A, B, C);
-	//PrintQuotients(A0, B0, C0);
+	const double q2_max = (4 * pnu * pnu * Mn) / (2 * pnu + Mn);
+	const double q2_min = q2_max * 0.0001;
+	double delta = (q2_max -q2_min) / steps;
 
-	Impulse(pnu, A, B, C, &pe1, &pe2);
-	Impulse(pnu, A0, B0, C0, &pe10, &pe20);
-
-	PrintImpulse(pe1, pe2);
-	//PrintImpulse(pe10, pe20);
-
-
-	cout << ScatteringCrossSection(pnu, theta, pe1) << endl;
-
-	double delta_theta = 0.25 * radian;
-
-	int SIZE = 730;
-	double* Angle = new double[730];
-
-	double d_sigma, diff; // the difference between the normal and massless case & the fractional difference respectively
+	double d_sigma; 
 	double sigma1, sigma2, sigmalll;
-	double totalEnergy;
+	//double totalEnergy;
 
-	double protonImpulse;
-	double protonAngle;
+	//double protonImpulse;
+	//double protonAngle;
 
-	string paths[6] = { "DATA.txt", "PULSE.txt", "PROTON.txt", "ENERGY.txt", "DIFFERENCE.txt", "RAD_CORR.txt"};
-	ofstream files[6];
+	string paths[9] = { "DATA.txt", "PULSE.txt", "PROTON.txt", "ENERGY.txt", "DIFFERENCE.txt", "RAD_CORR.txt", "DELTA.txt", "DSMALLe.txt", "DSMALLm.txt" };
+	ofstream files[9];
 
-	for (int i = 0; i < 6; i++)
+	//cout << "x2" << "    " << CheckAccur() << endl;
+	//cout << "x5" << "    " << Trapeze(0, 1, 1000) << endl;
+	for (int i = 0; i < 9; i++)
 		files[i].open(paths[i]);
 
 
-
-
-
-	/*string path1 = "DATA.txt";
-	ofstream data;
-	data.open(path1);
-
-	string path2 = "PULSE.txt";
-	ofstream pulse;
-	pulse.open(path2);
-
-	string path3 = "PROTON.txt";
-	ofstream proton;
-	proton.open(path3);
-
-	string path4 = "ENERGY.txt";
-	ofstream energy;
-	energy.open(path4);
-
-	string path5 = "DIFFERENCE.txt";
-	ofstream difference;
-	difference.open(path5);
-
-	string path6 = "RAD_CORR.txt";
-	ofstream rad_corr;
-	rad_corr.open(path6);*/
-
 	double theta_min = 0;
 
-	double delta_theta1 = 0.25 * radian;
-	double delta_theta2 = 3 * radian;
+	int i = 0;
+	int j = 0;
+	/*files[0] << eps2 << endl << endl;
+	files[0] << "Test function: " << "1 / z" << " ; " << "integration boundaries: " << "[eps2, 1]" << endl << endl;
+	files[0] << "-ln(eps2)=" << -log(eps2) << endl << endl;*/
 
-	/*for (int i = 0; i < 100; i++)
-	{
-		Angle[i] = 0;
-	}
 
-	for (int i = 0; Angle[i] < M_PI; i++)
+
+	//while (i<steps)
+	//{
+	//	q2[i] = i * delta;
+	//	if (i == 0)
+	//		q2[i] = delta / 2;
+	//	
+	//	sigma2 = ScatteringCrossSection(pnu, q2[i], sort);
+
+	//	
+	//	sigma1 = ScatteringCrossSectionMasslessCase(pnu, q2[i], sort);
+	//	double born = sigma1;
+	//	sigmalll = SigmaLLL(pnu, q2[i], sort, "electron");
+
+	//	d_sigma = (sigma2 - sigma1) / sigma1;
+
+	//	/*data*/ files[0] << q2[i] << " " << sigma2 << " " << sigmalll << endl;
+	//	/*difference*/ files[4] << q2[i] << " " << sigmalll << endl;
+	//	/*rad_corr */files[5] << q2[i] << " " << sigmalll << endl;
+	//	i++;
+	//}
+
+
+
+	double pnu_min = 0.18 * GeVtoMeV;
+	double pnu_max = 2 * GeVtoMeV;
+	const int N = 25;
+	const double pnu_step = (pnu_max - pnu_min) / N;
+	double pnu_curr = pnu_min;
+	double diff;
+	double Q2_max;
+
+	/*while (j < steps)
 	{
-		if (Angle[i] <= 15 * radian)
-			Angle[i] = i * delta_theta1;
-		else
-			Angle[i] = i * delta_theta2;
+		diff = Delta_diff(pnu, q2, sort, 1, q2[j]);
+		files[6] << q2[j] << " " << diff << endl;
+		j++;
 	}*/
 
-	/*cout << i << endl;*/
-
-	for (int i = 0; ; i++)
+	while (pnu_curr <= pnu_max)
 	{
-		Angle[i] = i * delta_theta;
-
-		CalcQuotients(pnu, Angle[i], &A, &B, &C);
-		CalcQuotientsMasslessCase(pnu, Angle[i], &A0, &B0, &C0);
-
-		Impulse(pnu, A, B, C, &pe1, &pe2);
-		Impulse(pnu, A0, B0, C0, &pe10, &pe20);
-
-		/*pulse*/files[1] << Angle[i] << "    " << pe1 << endl;
-		//pulse << Angle[i] << "    " << pe1 << " | " << pe2 << endl;
-
-		if (pe1 > 0 && pe2 < 0)
-			pe = pe1;
-		else if (pe1 < 0 && pe2>0)
-			pe = pe2;
-		else
-			cout << "Error! Both roots are either positive or negative!" << endl;
-		
-		sigma2 = ScatteringCrossSection(pnu, Angle[i], pe);
-		sigma1 = ScatteringCrossSectionMasslessCase(pnu, Angle[i], pe10);
-		sigmalll = SigmaLLL(pnu, Angle[i], pe);
-
-		d_sigma = (sigma2 - sigma1) / sigma1;
-		//diff = (sigmalll - sigma2);
-		diff = sigmalll;
-
-		/*data*/ files[0] << Angle[i] << " " << sigma2 << endl;
-		/*difference*/ files[4] << Angle[i] << " " << diff << endl;
-		/*rad_corr */files[5] << Angle[i] << " " << sigmalll << endl;
-
-		protonImpulse = ProtonImpulse(pnu, pe, Angle[i]);
-		protonAngle = ProtonAngle(pnu, pe, Angle[i]);
-
-		totalEnergy = TotalPulse(protonImpulse, pe);
-		/*energy*/files[3] << Angle[i] << "   " << totalEnergy << endl;
-		// Angle[i] not protonAngle in order to draw both graphs (for an electron and a proton)
-		//of the same x (in this case an angle of the eletron)
-		/*proton*/files[2] << protonAngle << "    " << protonImpulse << endl;
-
-
-		/*if (pnu <= pe1)
-			theta_min = Angle[i];*/
-		if (M_PI <= Angle[i])
-			break;
-
-		//data << Angle[i] << " " << sigma2 << endl;
+		Q2_max = (4 * pnu_curr * pnu_curr * Mn) / (2 * pnu_curr + Mn);
+		diff = Delta_diff(pnu_curr, sort, 1, Q2_max);
+		files[6] << pnu_curr << " " << diff << endl;
+		pnu_curr += pnu_step;
 	}
 
-	/*pulse*/ files[1]<< endl << endl;
-	/*pulse << "Mininal angle is equal to: " << theta_min << endl;*/
+	const int NN = 25;
+	const double q2_step = (q2_max - q2_min) / NN;
+	double q2_curr = q2_min;
+	double delta_small;
+
+	/*while (q2_curr <= q2_max)
+	{
+		delta_small = Delta_small(pnu, "anti", "electron", q2_curr);
+		files[7] << q2_curr << " " << delta_small << endl;
+
+		delta_small = Delta_small(pnu, "anti", "muon", q2_curr);
+		files[8] << q2_curr << " " << delta_small << endl;
+
+		q2_curr+=q2_step;
+	}*/
 
 
-	for (int i = 0; i < 6; i++)
+	files[1]<< endl << endl;
+
+
+
+	for (int i = 0; i < 9; i++)
 		files[i].close();
 
-
-
-	/*data.close();
-	pulse.close();
-	proton.close();
-	energy.close();
-	difference.close();*/
-
-	delete[]Angle;
-	//cout << TestSimpson(TestStart, TestEnd, 100, TestFunc, -0.2, 1.82) << endl;
+	delete[]q2;
 
 	return 0;
 }
 
-void PrintQuotients(double A, double B, double C)
+void Pulse(double pnu, double q2, double* pe)
 {
-	cout << "There's quotient A: " << A << endl;
-	cout << "There's quotient B: " << B << endl;
-	cout << "There's quotient C: " << C << endl;
-}
-
-void CalcQuotients(double pnu, double theta, double* pa, double* pb, double* pc)
-{
-	(*pa) = 4 * pnu * pnu - 4 * pnu * pnu * cos(theta) * cos(theta) + 8 * Mn * pnu + 4 * Mn * Mn;
-	(*pb) = -4 * me * me * pnu * cos(theta) + 4 * Mp * Mp * pnu * cos(theta) - 8 * Mn * pnu * pnu * cos(theta) - 4 * Mn * Mn * pnu * cos(theta);
-	(*pc) = 4 * me * me * pnu * pnu - pow(me, 4) + 2 * Mp * Mp * me * me - pow(Mp, 4) + 4 * Mn * me * me * pnu + 4 * Mn * Mp * Mp * pnu
-		- 4 * Mn * Mn * pnu * pnu + 2 * Mn * Mn * me * me + 2 * Mn * Mn * Mp * Mp - 4 * pow(Mn, 3) * pnu - pow(Mn, 4);
-}
-
-void CalcQuotientsMasslessCase(double pnu, double theta, double* pa0, double* pb0, double* pc0)
-{
-	(*pa0) = 4 * pnu * pnu - 4 * pnu * pnu * cos(theta) * cos(theta) + 8 * Mn * pnu + 4 * Mn * Mn;
-	(*pb0) = -8 * Mn * pnu * pnu * cos(theta);
-	(*pc0) = -4 * Mn * Mn * pnu * pnu;
-}
-
-void Impulse(double pnu, double a, double b, double c, double* pnu1, double* pnu2)
-{
-	(*pnu1) = (-b + sqrt(Discriminant(a, b, c))) / (2 * a);
-	(*pnu2) = (-b - sqrt(Discriminant(a, b, c))) / (2 * a);
-}
-
-void PrintImpulse(double pnu1, double pnu2)
-{
-	cout << "p1 = " << pnu1 << endl;
-	cout << "p2 = " << pnu2 << endl;
-}
-
-double TotalPulse(double pp, double pe)
-{
-	double pulseTotal = pp + pe;
-	return pulseTotal;
-}
-
-double Discriminant(double a, double b, double c)
-{
-	double discriminant = b * b - 4 * a * c;
-	return discriminant;
+	(*pe) = (-q2) / (2 * Mn) + pnu;
 }
 
 
-double ScatteringCrossSection(double pnu, double theta, double pe) //  ds/d(cos[theta])
+//double ScatteringCrossSection(double pnu, double q2) //  ds/d(cos[theta])
+//{
+//	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E3;
+//	const double Gf = 1.166 * 1E-11;
+//
+//	double theta_C = 13 * radian; // the Cabbibo angle
+//
+//	/*double pe = q2 / (2 * Mn) - pnu;
+//	double Ee = sqrt(pe * pe + me * me);*/
+//	double y = q2 / (2 * Mn * pnu);
+//
+//	double sigma = (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+//		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
+//			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
+//			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
+//
+//	return sigma * hc2;
+//}
+
+double ScatteringCrossSection(double pnu, double q2, string sort) //for testing
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389*10E3;
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E18;
 	const double Gf = 1.166 * 1E-11;
 
 	double theta_C = 13 * radian; // the Cabbibo angle
 
-	double Ee = sqrt(pe * pe + me * me);
-	double q2 = -me * me + 2 * pnu * Ee - 2 * pnu * pe * cos(theta);
+	/*double Ee = sqrt(pe * pe + me * me);
+	double q2 = -me * me + 2 * pnu * Ee - 2 * pnu * pe * cos(theta);*/
 	double y = q2 / (2 * Mn * pnu);
 
-	double jacobian = ((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
-		cos(theta)), 2) * pnu * pnu *
-		Mn * pnu * (Mn + pnu) +
-		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
-		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
 
-	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
-		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
-			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
-			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
+	double sigma = 0;
 
+	/*sort = "norm"; */
+	if (sort == "norm")
+	{
+		sigma = (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+			(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
+				+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
+				+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
+	}
+	if (sort == "anti")
+	{
+		sigma = (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+			(pow((Fv - Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv + Fa) / 2, 2)
+				+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
+				+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm + Fa) - 2 * Fa)));
+	}
+	//return sigma * hc2;
+	//return 1.0;
+	//cout << q2 << " " << pnu << " " << hc2 << endl;
 	return sigma * hc2;
 }
 
-double ScatteringCrossSection(double pnu, double theta, double pe, double z)
+
+double ScatteringCrossSectionMasslessCase(double pnu, double q2, string sort)
 {
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E3;
-	const double Gf = 1.166 * 1E-11;
-
-	double theta_C = 13 * radian; // the Cabbibo angle
-
-	double pe_cap = pe / z;
-	double Ee_cap = sqrt(pe_cap * pe_cap + me * me); //that's capped energy
-	double q2_cap = (-me * me + 2 * pnu * Ee_cap - 2 * pnu * pe_cap * cos(theta));
-	double y = q2_cap / (2 * Mn * pnu);
-
-	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
-		cos(theta)), 2) * pnu * pnu *
-		Mn * pnu * (Mn + pnu) +
-		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
-		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
-
-	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
-		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
-			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
-			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
-
-	return sigma * hc2;
-}
-
-double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
-{
-	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E3; //MeV2*barn not 5
+	const double Fa = 1.25, Fv = 1, Fm = 3.71, hc2 = 0.389 * 10E3; 
 	const double Gf = 1.166 * 1E-11; //MeV-2
 
-	double q2 = 2 * pnu * pe0 - 2 * pnu * pe0 * cos(theta);
+	/*double q2 = 2 * pnu * pe0 - 2 * pnu * pe0 * cos(theta);*/
 	double y = q2 / (2 * Mn * pnu);
 
 	double theta_C = M_PI / 180 * 13; // the Cabbibo angle
 
-	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
-		cos(theta)), 2) * pnu * pnu *
-		Mn * pnu * (Mn + pnu) +
-		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
-		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
 
-	double sigma = jacobian * (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
+	double sigma = (Gf * Gf / M_PI * cos(theta_C) * cos(theta_C) *
 		(pow((Fv + Fa) / 2, 2) + pow((1 - y), 2) * pow((Fv - Fa) / 2, 2)
 			+ Mn * y / (4 * pnu) * (Fa * Fa - Fv * Fv)
 			+ 0.5 * y * Fm * ((1 - y) * pnu / (2 * Mn) * Fm + y * (Fv + 0.25 * Fm - Fa) + 2 * Fa)));
@@ -357,106 +267,390 @@ double ScatteringCrossSectionMasslessCase(double pnu, double theta, double pe0)
 	return sigma * hc2;
 }
 
-double ProtonImpulse(double pnu, double pe, double theta_e)
+double func1(double pnu, double q2, double z)
 {
-	double pp = sqrt(pnu * pnu + pe * pe - 2 * pnu * pe * cos(theta_e));
-	return pp;
-}
-
-double ProtonAngle(double pnu, double pe, double theta_e)
-{
-	double pp = ProtonImpulse(pnu, pe, theta_e);
-	double theta_p = acos((pnu - pe * cos(theta_e)) / pp);
-	return theta_p;
-}
-
-double func1(double pnu, double theta, double pe, double z)
-{
-	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
-		cos(theta)), 2) * pnu * pnu *
-		Mn * pnu * (Mn + pnu) +
-		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
-		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
-	double f1 =  (ScatteringCrossSection(pnu, theta, pe, z) / z) * (1 + z * z) / (1 - z);
+	double q2z = q2 / z;
+	double f1 =  (ScatteringCrossSection(pnu, q2z,sort) / z) * (1 + z * z) / (1 - z); 
+	//double f1 =  1 / (1 - z); 
 	return f1;
 }
 
-double func2(double pnu, double theta, double pe, double z)
+double func2(double pnu, double q2, double z)
 {
-	//jacobian sign +/-??
-	double jacobian = -((2 * pnu * ((-1 + 2 * cos(theta)) * pow(Mn, 3) * pnu * pnu + pow((-1 +
-		cos(theta)), 2) * pnu * pnu *
-		Mn * pnu * (Mn + pnu) +
-		Mn * Mn * ((-2 + 4 * cos(theta)) * pow(pnu, 3) + Mn * pnu * (Mn + pnu)) +
-		Mn * pnu * (-pow((-1 + cos(theta)), 2) * pow(pnu, 3) +
-			2 * Mn * pnu * (Mn + pnu)))) / (pow(Mn * Mn + 2 * Mn * pnu - (-1 + cos(theta) * cos(theta)) * pnu * pnu, 2)));
-	double f2 = ScatteringCrossSection(pnu, theta, pe) * (1 + z * z) / (1 - z);
+	double f2 = ScatteringCrossSection(pnu, q2, sort) * (1 + z * z) / (1 - z);
+	/*double f2 =  1 / z;*/
+	/*double f2 =  1 / (1 - z);*/
+	/*double f2 =  1;*/
 	return f2;
 }
 
+//double R(double pnu, double q2, int n, int m, double(*func)(double pu, double q2, double z), double a, double b)
+//{
+//	double sum = 0;
+//	double h;
+//	if (n == 0 && m == 0)
+//	{
+//		return (b - a) / 2;
+//	}
+//	else if (m == 0 && n != 0)
+//	{
+//		h = (b - a) / pow(2, n);
+//		for (int i = 1; i < pow(2, n - 1); i++)
+//		{
+//			sum += func(pnu, q2, a + (2 * i - 1) * h);
+//		}
+//		return R(pnu, q2, n - 1, 0, func, a, b) / 2 + sum * h;
+//	}
+//	else
+//	{
+//		return 1 / (pow(4, m) - 1) * (pow(4, m) * R(pnu, q2, n, m - 1, func, a, b) - R(pnu, q2, n - 1, m - 1, func, a, b));
+//	}
+//}
 
-double Simpson(double pnu, double theta, double pe, double (*str)(double pnu, double theta, double pe), double end, int splits,
-	double (*func)(double pnu, double theta, double pe, double z))
+//double R_Q2(double pnu, string sort, string gen, double q2_max, int n, int m,
+//	double(*func)(double pnu, double q2, string sort, string gen), int corr_ord, double a, double b)
+//{
+//	double sum = 0;
+//	double h;
+//
+//
+//	if (corr_ord == 1)
+//	{
+//		if (n == 0 && m == 0)
+//		{
+//			return (b - a) / 2;
+//		}
+//		else if (m == 0 && n != 0)
+//		{
+//			h = (b - a) / pow(2, n);
+//			for (int i = 1; i < pow(2, n - 1); i++)
+//			{
+//				sum += func(pnu, q2, a + (2 * i - 1) * h);
+//			}
+//			return R(pnu, q2, n - 1, 0, func, a, b) / 2 + sum * h;
+//		}
+//		else
+//		{
+//			return 1 / (pow(4, m) - 1) * (pow(4, m) * R(pnu, q2, n, m - 1, func, a, b) - R(pnu, q2, n - 1, m - 1, func, a, b));
+//		}
+//	}
+//	
+//}
+
+double T(double pnu, string sort, string gen, double(*func)(double pnu, double q2, string sort, string gen), 
+	double q2_max, int corr_ord, int n)
 {
-	double sum = 0;
-	if (str(pnu, theta, pe) < end)
+	double q2_min = 5000;
+	double h = (q2_max - q2_min) / n;
+	double sum = 0.0;
+
+	if (corr_ord == 1)
 	{
-		double h = (end - str(pnu, theta, pe)) / splits;
-
-		sum = func(pnu, theta, pe, str(pnu, theta, pe)) + func(pnu, theta, pe, end);
-		int k;
-
-		for (int i = 1; i <= splits - 1; i++)
-		{
-			k = 2 + 2 * (i % 2);
-			sum += k * func(pnu, theta, pe, str(pnu, theta, pe) + i * h);
-		}
-		sum *= h / 3;
+		//sum = SigmaLLL(pnu, q2_min, sort, gen) + SigmaLLL(pnu, q2_max, sort, gen);
+		sum = func(pnu, q2_min, sort, gen) + func(pnu, q2_max, sort, gen);
+		for (int i = 1; i <= n - 1; i++)
+			//sum += 2 * SigmaLLL(pnu, q2_min + i * h, sort, gen);
+			sum += 2 * func(pnu, q2_min + i * h, sort, gen);
+		sum *= h / 2;
 	}
 	return sum;
 }
 
+double x2(double x)
+{
+	return x*x;
+}
+
+double x5(double x)
+{
+	return pow(x,5);
+}
+
+double Trapeze(double a, double b, int n)
+{
+	double h = (b - a) / n;
+	double sum = x2(a) + x2(b);
+
+	for (int i = 0; i <= n - 1; i++) {
+		sum += 2 * x2(a + i * h);
+	}
+	sum *= h / 2;
+
+	return sum;
+}
+
+double CheckAccur()
+{
+	double precise_val = 0.3333333333;
+	//double num_val = Trapeze(0, 1, 10);
 
 
+	double err = 1e-8;
+	double res, res1;
+	int i = 1;
+	double d = 0.0;
 
-double SigmaLLL(double pnu, double theta, double pe)
+	res = Trapeze(0, 1, 5);
+	do
+	{
+		//res1 = res;
+		res = Trapeze(0, 1, 5 * (i + 1));
+		d = res - precise_val;
+		i++;
+	} while (abs(d) > err);
+
+	return res;
+
+}
+
+//double Romberg(double pnu, double q2, double (*str)(double pnu, double q2), double end, 
+//	double (*func)(double pnu, double q2, double z))
+//{
+//	double err = 1e-4;
+//
+//	double d, res, res1;
+//	int i = 1;
+//
+//	if (str(pnu, q2) < end)
+//	{
+//		res = R(pnu, q2, 0, 0, func, str(pnu, q2), end);
+//		int i = 1;
+//		do {
+//			res1 = res;
+//			res = R(pnu, q2, i, 0, func, str(pnu, q2), end);
+//			d = res - res1;
+//			i++;
+//		} while (abs(d) > err);
+//		return res;
+//	}
+//}
+
+//double Romberg_Q2(double pnu, double q2_max, string sort, string gen, double str, double end, double (*func)(double pnu, double q2, string sort, string gen))
+//{
+//	double err = 1e-4;
+//
+//	double d, res, res1;
+//	int i = 1;
+//
+//	if (str < end)
+//	{
+//		res = R_Q2(pnu, q2_max, 0, 0, func, str, end);
+//		int i = 1;
+//		do {
+//			res1 = res;
+//			res = R_Q2(pnu, q2_max, i, 0, func, str, end);
+//			d = res - res1;
+//			i++;
+//		} while (abs(d) > err);
+//		return res;
+//	}
+//}
+
+double Simpson(double pnu, double q2, double(*str)(double pnu, double q2), double end, double splits, double(*func)(double pnu, double q2, double z))
+{
+	//double sum1 = 0;
+	double sum = 0;
+
+	if (str(pnu, q2) < end)
+	{
+		double h = (end - str(pnu, q2)) / splits;
+
+		sum = func(pnu, q2, str(pnu, q2)) + func(pnu, q2, end);
+
+		for (int i = 1; i <= splits - 1; i++)
+		{
+			if (i % 3 == 0)
+				sum += 2 * func(pnu, q2, str(pnu, q2) + i * h);
+			else
+				sum += 3 * func(pnu, q2, str(pnu, q2) + i * h);
+		}
+		sum *= 3 * h / 8;
+
+
+		/*double h2 = (end - str(pnu, q2)) / splits2;
+
+		sum2 = func(pnu, q2, str(pnu, q2)) + func(pnu, q2, end);
+
+		for (int i = 1; i <= splits2 - 1; i++)
+		{
+			if (i % 3 == 0)
+				sum2 += 2 * func(pnu, q2, str(pnu, q2) + i * h2);
+			else
+				sum2 += 3 * func(pnu, q2, str(pnu, q2) + i * h2);
+		}
+		sum2 *= 3 * h2 / 8;*/
+
+
+	/*	do {
+			sum2 = sum1;
+
+			splits1 *= 2;
+
+
+			diff = sum2 - sum1;
+		} while (abs(diff) > err);*/
+
+	}
+	return sum;
+}
+
+//double Trapezium(double pnu, double q2[], double q2_max_curr, string sort, string gen, int corr_ord, int n)
+double Trapezium(double pnu, double q2_max, string sort, string gen, int corr_ord, int n)
+{
+	//double h = (q2_max_curr - q2[0]) / n;
+	//double sum = 0.0;
+
+
+	//if (corr_ord == 0)
+	//{
+	//	sum = ScatteringCrossSection(pnu, q2[0], sort) + ScatteringCrossSection(pnu, q2_max_curr, sort);
+	//	for (int i = 1; i <= n - 1; i++)
+	//	{
+	//		//sum += 2 * ScatteringCrossSection(pnu, q2[i], sort);
+	//		sum += 2 * ScatteringCrossSection(pnu, q2[0] + i * h, sort);
+	//	}
+	//	sum *= h / 2;
+	//}
+
+	//if (corr_ord == 1)
+	//{
+	//	sum = SigmaLLL(pnu, q2[0], sort, gen) + SigmaLLL(pnu, q2_max_curr, sort, gen);
+	//	for (int i = 1; i <= n - 1; i++)
+	//	{
+	//		//sum += 2 * SigmaLLL(pnu, q2[i], sort, gen);
+	//		sum += 2 * SigmaLLL(pnu, q2[0] + i * h, sort, gen);
+	//	}
+	//	sum *= h / 2;
+	//}
+
+	//return sum;
+
+	double err = 1e-3;
+	double res, res1;
+	int i = 1;
+	double d = 0.0;
+
+	res = T(pnu, sort, gen, SigmaLLL, q2_max, corr_ord, n);
+	do
+	{
+		res1 = res;
+		res = T(pnu, sort, gen, SigmaLLL, q2_max, corr_ord, n * (i + 1));
+		d = res - res1;
+		i++;
+	} while (abs(d) > err);
+
+	return res;
+}
+
+double Delta_diff(double pnu, string sort, int corr_ord, double q2_max)
+{
+	double diff = 0.0;  
+
+	if (corr_ord == 0)
+	{
+		diff = 0;
+	}
+
+	if (corr_ord == 1)
+		diff = Trapezium(pnu, q2_max, sort, "muon", 1, 15) / Trapezium(pnu, q2_max, sort, "electron", 1, 15) - 1;
+		//diff = Romberg_Q2(pnu, q2_max, sort, "muon", 1, 25) / Romberg_Q2(pnu, q2_max, sort, "electron", 1, 25) - 1;
+
+	return diff;
+}
+
+double Delta_small(double pnu, string sort, string gen, double Q2)
+{
+	double born = ScatteringCrossSection(pnu, Q2, sort);
+	double corr = SigmaLLL(pnu, Q2, sort, gen);
+
+	double delta = (corr / born - 1) * 100;
+	return delta;
+}
+
+
+double SigmaLLL(double pnu, double q2, string sort, string gen)
 {
 	const double alpha = 0.0073; //fine structure constant
-	double s = me * me + 2 * pnu * Mn + Mn * Mn; //total energy of the system in the SCM
+	double E_astr = 0.0;
+	double s = 0.0;
+	double sigmalll = 0.0;
 
-	double E_astr = (s + me * me - Mn * Mn) / (2 * sqrt(s)); //electron energy in the SCM
+	if (gen == "electron")
+	{
+		s = me * me + 2 * pnu * Mn + Mn * Mn; //total energy of the system in the SCM
+		E_astr = (s + me * me - Mn * Mn) / (2 * sqrt(s)); //electron energy in the SCM
 
 
-	double sigmalll = ScatteringCrossSection(pnu, theta, pe) + alpha / (2 * M_PI) * log((4 * E_astr) / (me * me)) *
-		(Simpson(pnu, theta, pe, LowIntLim, 0.99/*1-eps2*/, 100,
-			func1) - Simpson(pnu, theta, pe, ZeroIntLim, 0.99/*1-eps2*/, 100,
-				func2));
+		//sigmalll = ScatteringCrossSection(pnu, q2, sort) + alpha / (2 * M_PI) * log((4 * E_astr * E_astr) / (me * me)) *
+		//	(Simpson(pnu, q2, LowIntLim, 1 - eps2, 1E3 - 1,
+		//		func1) + Simpson(pnu, q2, SubIntLim, 1 - eps1, 1E6 - 1,
+		//			func1) - Simpson(pnu, q2, ZeroIntLim, 1 - eps2, 1E3 - 1,
+		//				func2) - Simpson(pnu, q2, SubIntLim, 1 - eps1, 1E6 - 1,
+		//					func2));
+
+		sigmalll = ScatteringCrossSection(pnu, q2, sort) + alpha / (2 * M_PI) * log((4 * E_astr * E_astr) / (me * me)) *
+			(Simpson(pnu, q2, LowIntLim, 1 - eps2, 666,
+				func1) + Simpson(pnu, q2, SubIntLim, 1 - eps1, 199998,
+					func1) - Simpson(pnu, q2, ZeroIntLim, 1 - eps2, 666,
+						func2) - Simpson(pnu, q2, SubIntLim, 1 - eps1, 199998,
+							func2));
+	}
+
+	if (gen == "muon")
+	{
+		s = mmu * mmu + 2 * pnu * Mn + Mn * Mn; //total energy of the system in the SCM
+		E_astr = (s + mmu * mmu - Mn * Mn) / (2 * sqrt(s)); //muon energy in the SCM
+
+
+		/*sigmalll = ScatteringCrossSection(pnu, q2, sort) + alpha / (2 * M_PI) * log((4 * E_astr * E_astr) / (mmu * mmu)) * 
+			(Simpson(pnu, q2, LowIntLim, 1 - eps2, 1E3 - 1,
+				func1) + Simpson(pnu, q2, SubIntLim, 1 - eps1, 1E6 - 1,
+					func1) - Simpson(pnu, q2, ZeroIntLim, 1 - eps2, 1E3 - 1,
+						func2) - Simpson(pnu, q2, SubIntLim, 1 - eps1, 1E6 - 1,
+							func2));*/
+
+		sigmalll = ScatteringCrossSection(pnu, q2, sort) + alpha / (2 * M_PI) * log((4 * E_astr * E_astr) / (mmu * mmu)) *
+			(Simpson(pnu, q2, LowIntLim, 1 - eps2, 666,
+				func1) + Simpson(pnu, q2, SubIntLim, 1 - eps1, 199998,
+					func1) - Simpson(pnu, q2, ZeroIntLim, 1 - eps2, 666,
+						func2) - Simpson(pnu, q2, SubIntLim, 1 - eps1, 199998,
+							func2));
+	}
+
 	return sigmalll;
 }
 
-double LowIntLim(double pnu, double theta, double pe) // pe1 not pe
+double LowIntLim(double pnu, double q2) 
 {
-	double a, b, c;
-	CalcQuotients(pnu, M_PI, &a, &b, &c); //max
-	double pe_max = MaxImpulse(pnu, a, b, c);
+	double q2_max = (4 * pnu * pnu * Mn) / (2 * pnu + Mn);
+	double low = q2 / q2_max;
+	if (low > 1 - eps2)
+		low = 1 - eps2;
+	//double a, b, c;
+	//CalcQuotients(pnu, M_PI, &a, &b, &c); //max
+	//double pe_max = MaxImpulse(pnu, a, b, c);
 
-	double low = (2 * pnu * pe * (1 - cos(theta)) - me * me) / (4 * pnu * pe_max - me * me);
-	//return eps2;
+	//double low = (2 * pnu * pe * (1 - cos(theta)) - me * me) / (4 * pnu * pe_max - me * me);
+	////return eps2;
 	return low;
 }
 
-double ZeroIntLim(double pnu, double theta, double pe)
+double ZeroIntLim(double pnu, double q2)
 {
-	//return eps2;
+	/*return eps2;*/
 	return 0;
 }
 
-double MaxImpulse(double pnu, double a, double b, double c)
+double SubIntLim(double pnu, double q2)
 {
-	double pe_max = (-b + sqrt(Discriminant(a, b, c))) / (2 * a);
-	return pe_max;
+	return 1 - eps2;
 }
+
+//double MaxImpulse(double pnu, double a, double b, double c)
+//{
+//	double pe_max = (-b + sqrt(Discriminant(a, b, c))) / (2 * a);
+//	return pe_max;
+//}
 
 double TestStart(double a)
 {
@@ -490,4 +684,5 @@ double TestSimpson(double(*str)(double a), double(*end)(double b), double n, dou
 
 	return sum;
 }
+
 
